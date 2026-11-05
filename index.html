@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0e7490">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Word Tide">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e7490'/%3E%3Cpath d='M8 40c6-6 12-6 18 0s12 6 18 0 10-5 12-2' stroke='white' stroke-width='5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M8 50c6-6 12-6 18 0s12 6 18 0 10-5 12-2' stroke='white' stroke-width='5' fill='none' stroke-linecap='round' opacity='.6'/%3E%3C/svg%3E">
+<title>Word Tide</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #fff; color: #1a1a1b;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; min-height: 100dvh;
+    user-select: none; -webkit-user-select: none;
+  }
+  header { width: 100%; max-width: 500px; padding: 10px 12px 0; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #d3d6da; padding-bottom: 8px; }
+  .title-row h1 { margin: 0; font-size: 30px; letter-spacing: 2px; font-weight: 800; }
+  .title-row h1 .wave { color: #0e7490; }
+  .icon-btn { background: none; border: none; font-size: 22px; cursor: pointer; padding: 4px 8px; color: #565758; }
+  .subtitle { text-align: center; color: #787c7e; font-size: 13px; margin: 8px 0 0; }
+  .dateline { text-align: center; color: #565758; font-size: 13px; margin: 2px 0 0; font-weight: 600; }
+  .mode-row { display: flex; justify-content: center; gap: 8px; margin-top: 10px; }
+  .mode-btn {
+    border: 1px solid #d3d6da; background: #fff; color: #565758;
+    border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .mode-btn.active { background: #0e7490; border-color: #0e7490; color: #fff; }
+  #toast {
+    position: fixed; top: 12%; left: 50%; transform: translateX(-50%);
+    background: #1a1a1b; color: #fff; font-weight: 700; font-size: 15px;
+    padding: 12px 18px; border-radius: 6px; opacity: 0; pointer-events: none;
+    transition: opacity .15s; z-index: 50; white-space: nowrap; max-width: 92vw;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  #toast.show { opacity: 1; }
+  main { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 500px; padding: 8px 0; }
+  #board { display: grid; grid-template-rows: repeat(6, 1fr); gap: 5px; padding: 10px; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .tile {
+    width: 52px; height: 52px; border: 2px solid #d3d6da;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 800; text-transform: uppercase;
+    transition: transform .1s, background-color .3s, border-color .3s, color .3s;
+  }
+  @media (max-height: 700px) { .tile { width: 46px; height: 46px; font-size: 26px; } }
+  .tile.filled { border-color: #878a8c; animation: pop .08s ease-in; }
+  @keyframes pop { 50% { transform: scale(1.08); } }
+  .tile.correct { background: #6aaa64; border-color: #6aaa64; color: #fff; }
+  .tile.present { background: #c9b458; border-color: #c9b458; color: #fff; }
+  .tile.absent { background: #787c7e; border-color: #787c7e; color: #fff; }
+  .row.shake { animation: shake .4s; }
+  @keyframes shake { 20%,60% { transform: translateX(-5px); } 40%,80% { transform: translateX(5px); } }
+  .row.flip .tile { animation: flip .5s ease forwards; }
+  @keyframes flip { 0% { transform: rotateX(0); } 50% { transform: rotateX(90deg); } 100% { transform: rotateX(0); } }
+  #keyboard { width: 100%; max-width: 500px; padding: 0 6px 10px; }
+  .kb-row { display: flex; gap: 5px; margin-bottom: 6px; justify-content: center; }
+  .key {
+    flex: 1; max-width: 44px; height: 56px; border: none; border-radius: 4px;
+    background: #d3d6da; color: #1a1a1b; font-size: 13px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-family: inherit; text-transform: uppercase;
+  }
+  .key.wide { flex: 1.6; max-width: 66px; font-size: 11px; }
+  .key.correct { background: #6aaa64; color: #fff; }
+  .key.present { background: #c9b458; color: #fff; }
+  .key.absent { background: #787c7e; color: #fff; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.45);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 10px; max-width: 420px; width: 100%;
+    padding: 20px; max-height: 85vh; overflow-y: auto;
+    box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  }
+  .modal h2 { margin: 0 0 10px; font-size: 20px; }
+  .modal p { font-size: 15px; line-height: 1.5; color: #333; }
+  .modal .close-x { float: right; background: none; border: none; font-size: 22px; cursor: pointer; color: #787c7e; }
+  .stat-grid { display: flex; justify-content: space-around; margin: 14px 0; text-align: center; }
+  .stat-grid .num { font-size: 30px; font-weight: 800; }
+  .stat-grid .lbl { font-size: 11px; color: #787c7e; }
+  .dist-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; font-size: 13px; }
+  .dist-row .n { width: 12px; text-align: right; font-weight: 700; }
+  .dist-bar { background: #787c7e; color: #fff; padding: 2px 6px; min-width: 20px; text-align: right; font-weight: 700; border-radius: 2px; }
+  .dist-bar.best { background: #6aaa64; }
+  .big-btn {
+    display: block; width: 100%; margin-top: 16px; padding: 13px;
+    background: #6aaa64; color: #fff; border: none; border-radius: 6px;
+    font-size: 16px; font-weight: 800; cursor: pointer; letter-spacing: .5px;
+  }
+  .big-btn.secondary { background: #0e7490; }
+  .big-btn.ghost { background: #fff; color: #565758; border: 1px solid #d3d6da; }
+  .answer-reveal { text-align: center; font-size: 16px; margin-top: 8px; }
+  .answer-reveal b { text-transform: uppercase; letter-spacing: 2px; }
+  .examples .tile { width: 34px; height: 34px; font-size: 20px; border-width: 2px; display: inline-flex; vertical-align: middle; }
+  footer { text-align: center; color: #b0b3b5; font-size: 11px; padding: 6px 0 12px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="title-row">
+    <button class="icon-btn" id="helpBtn" aria-label="How to play">?</button>
+    <h1>WORD TIDE <span class="wave">🌊</span></h1>
+    <button class="icon-btn" id="statsBtn" aria-label="Statistics">📊</button>
+  </div>
+  <p class="subtitle">One word a night &middot; fresh words every Monday</p>
+  <p class="dateline" id="dateline"></p>
+  <div class="mode-row">
+    <button class="mode-btn active" id="nightlyBtn">Tonight&rsquo;s Word</button>
+    <button class="mode-btn" id="practiceBtn">Practice</button>
+  </div>
+</header>
+
+<div id="toast"></div>
+
+<main>
+  <div id="board"></div>
+</main>
+
+<div id="keyboard"></div>
+
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <button class="close-x" data-close="helpModal">&times;</button>
+    <h2>How to play</h2>
+    <p>Guess the five-letter word in 6 tries.</p>
+    <p>After each guess, the tiles change color to show how close you were.</p>
+    <div class="examples">
+      <p><span class="tile correct">W</span> <span class="tile">O</span><span class="tile">R</span><span class="tile">D</span><span class="tile">S</span> &nbsp; <b>W</b> is in the word, in the right spot.</p>
+      <p><span class="tile">W</span><span class="tile present">O</span><span class="tile">R</span><span class="tile">D</span><span class="tile">S</span> &nbsp; <b>O</b> is in the word, but in the wrong spot.</p>
+      <p><span class="tile">W</span><span class="tile">O</span><span class="tile absent">R</span><span class="tile">D</span><span class="tile">S</span> &nbsp; <b>R</b> is not in the word at all.</p>
+    </div>
+    <p><b>Tonight&rsquo;s Word:</b> one word each night. A new set of seven words arrives every Monday, so everyone playing gets the same word on the same night — compare scores!</p>
+    <p><b>Practice:</b> unlimited random words. Practice games don&rsquo;t count toward your stats or streak.</p>
+    <button class="big-btn" data-close="helpModal">Play</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="statsModal">
+  <div class="modal">
+    <button class="close-x" data-close="statsModal">&times;</button>
+    <h2>Statistics</h2>
+    <div class="stat-grid">
+      <div><div class="num" id="stPlayed">0</div><div class="lbl">Played</div></div>
+      <div><div class="num" id="stWin">0%</div><div class="lbl">Win %</div></div>
+      <div><div class="num" id="stCur">0</div><div class="lbl">Streak</div></div>
+      <div><div class="num" id="stMax">0</div><div class="lbl">Max streak</div></div>
+    </div>
+    <h3 style="margin:6px 0 4px;font-size:15px;">Guess distribution</h3>
+    <div id="dist"></div>
+    <div class="answer-reveal" id="answerReveal"></div>
+    <button class="big-btn secondary" id="shareBtn">📤 Share result</button>
+    <button class="big-btn ghost" id="practiceAgainBtn" style="display:none;">Play a practice word</button>
+    <button class="big-btn ghost" data-close="statsModal">Close</button>
+  </div>
+</div>
+
+<footer>Word Tide &middot; v1.0 &middot; made for nightly play 🌊</footer>
+
+<script src="js/answers.js"></script>
+<script src="js/guesses1.js"></script>
+<script src="js/guesses2.js"></script>
+<script src="js/guesses3.js"></script>
+<script src="js/guesses4.js"></script>
+<script src="js/guesses5.js"></script>
+<script src="js/guesses6.js"></script>
+<script>
+(function () {
+  "use strict";
+  var WORD_LEN = 5, MAX_GUESSES = 6;
+  var VALID = new Set((window.WT_GUESSES || []).map(function (w) { return w.toUpperCase(); }));
+  var ANSWERS = (window.WT_ANSWERS || []).map(function (w) { return w.toUpperCase(); });
+
+  /* ---------- dates & weekly words (same word for everyone, every night) ---------- */
+  function pad(n) { return (n < 10 ? "0" : "") + n; }
+  function dateKey(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+  function mondayOf(d) {
+    var x = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    var day = (x.getDay() + 6) % 7; /* Mon=0 ... Sun=6 */
+    x.setDate(x.getDate() - day);
+    return x;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function weekWords(monday) {
+    var seed = monday.getFullYear() * 10000 + (monday.getMonth() + 1) * 100 + monday.getDate();
+    var rnd = mulberry32(seed);
+    var arr = ANSWERS.slice();
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(rnd() * (i + 1));
+      var tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp;
+    }
+    return arr.slice(0, 7);
+  }
+  function tonightInfo() {
+    var now = new Date();
+    var monday = mondayOf(now);
+    var idx = (now.getDay() + 6) % 7;
+    return { date: now, monday: monday, idx: idx, word: weekWords(monday)[idx] };
+  }
+
+  /* ---------- state ---------- */
+  var mode = "nightly"; /* nightly | practice */
+  var answer = "";
+  var guesses = [];      /* submitted guesses */
+  var current = "";      /* in-progress guess */
+  var status = "playing";/* playing | won | lost */
+  var info = tonightInfo();
+  var stats = loadStats();
+
+  function loadStats() {
+    try {
+      var s = JSON.parse(localStorage.getItem("wt-stats") || "null");
+      if (s && typeof s.played === "number") return s;
+    } catch (e) {}
+    return { played: 0, wins: 0, curStreak: 0, maxStreak: 0, dist: [0, 0, 0, 0, 0, 0], lastDate: "" };
+  }
+  function saveStats() { try { localStorage.setItem("wt-stats", JSON.stringify(stats)); } catch (e) {} }
+  function stateKey() { return "wt-nightly-" + dateKey(info.date); }
+  function loadNightly() {
+    try {
+      var s = JSON.parse(localStorage.getItem(stateKey()) || "null");
+      if (s && s.answer === info.word) return s;
+    } catch (e) {}
+    return null;
+  }
+  function saveNightly() {
+    try { localStorage.setItem(stateKey(), JSON.stringify({ answer: answer, guesses: guesses, status: status })); } catch (e) {}
+  }
+
+  /* ---------- board & keyboard ---------- */
+  var boardEl = document.getElementById("board");
+  var kbEl = document.getElementById("keyboard");
+  var toastEl = document.getElementById("toast");
+  var toastTimer = null;
+
+  function buildBoard() {
+    boardEl.innerHTML = "";
+    for (var r = 0; r < MAX_GUESSES; r++) {
+      var row = document.createElement("div");
+      row.className = "row";
+      row.id = "row-" + r;
+      for (var c = 0; c < WORD_LEN; c++) {
+        var tile = document.createElement("div");
+        tile.className = "tile";
+        row.appendChild(tile);
+      }
+      boardEl.appendChild(row);
+    }
+  }
+  var KB_ROWS = [["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"], ["A", "S", "D", "F", "G", "H", "J", "K", "L"], ["ENTER", "Z", "X", "C", "V", "B", "N", "M", "BACK"]];
+  function buildKeyboard() {
+    kbEl.innerHTML = "";
+    KB_ROWS.forEach(function (row) {
+      var rowEl = document.createElement("div");
+      rowEl.className = "kb-row";
+      row.forEach(function (label) {
+        var b = document.createElement("button");
+        b.className = "key" + ((label === "ENTER" || label === "BACK") ? " wide" : "");
+        b.textContent = label === "BACK" ? "⌫" : label;
+        b.dataset.key = label;
+        b.addEventListener("click", function () { handleKey(label); });
+        rowEl.appendChild(b);
+      });
+      kbEl.appendChild(rowEl);
+    });
+  }
+  function paintBoard() {
+    for (var r = 0; r < MAX_GUESSES; r++) {
+      var rowEl = document.getElementById("row-" + r);
+      var tiles = rowEl.children;
+      var guess = guesses[r] || (r === guesses.length ? current : "");
+      var scored = guesses[r] ? scoreGuess(guesses[r], answer) : null;
+      for (var c = 0; c < WORD_LEN; c++) {
+        var tile = tiles[c];
+        tile.textContent = guess[c] || "";
+        tile.className = "tile";
+        if (guess[c]) tile.classList.add("filled");
+        if (scored) tile.classList.add(scored[c]);
+      }
+    }
+  }
+  function paintKeyboard() {
+    var state = {}; /* letter -> best state */
+    guesses.forEach(function (g) {
+      var s = scoreGuess(g, answer);
+      for (var i = 0; i < WORD_LEN; i++) {
+        var L = g[i], rank = { absent: 1, present: 2, correct: 3 }[s[i]];
+        if (!state[L] || rank > state[L].rank) state[L] = { cls: s[i], rank: rank };
+      }
+    });
+    kbEl.querySelectorAll(".key").forEach(function (k) {
+      var L = k.dataset.key;
+      k.classList.remove("correct", "present", "absent");
+      if (state[L]) k.classList.add(state[L].cls);
+    });
+  }
+  function toast(msg, ms) {
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove("show"); }, ms || 1600);
+  }
+
+  /* ---------- scoring (two-pass: greens first, then yellows respecting counts) ---------- */
+  function scoreGuess(guess, ans) {
+    var res = [], counts = {}, i;
+    for (i = 0; i < WORD_LEN; i++) res.push("absent");
+    for (i = 0; i < WORD_LEN; i++) if (guess[i] !== ans[i]) counts[ans[i]] = (counts[ans[i]] || 0) + 1;
+    for (i = 0; i < WORD_LEN; i++) if (guess[i] === ans[i]) res[i] = "correct";
+    for (i = 0; i < WORD_LEN; i++) {
+      if (res[i] !== "correct" && counts[guess[i]] > 0) { res[i] = "present"; counts[guess[i]]--; }
+    }
+    return res;
+  }
+
+  /* ---------- input ---------- */
+  function handleKey(key) {
+    if (status !== "playing") return;
+    if (key === "ENTER") { submitGuess(); return; }
+    if (key === "BACK") { current = current.slice(0, -1); paintBoard(); return; }
+    if (/^[A-Z]$/.test(key) && current.length < WORD_LEN) { current += key; paintBoard(); }
+  }
+  document.addEventListener("keydown", function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.key === "Enter") handleKey("ENTER");
+    else if (e.key === "Backspace") handleKey("BACK");
+    else if (/^[a-zA-Z]$/.test(e.key)) handleKey(e.key.toUpperCase());
+  });
+
+  function submitGuess() {
+    if (current.length < WORD_LEN) { toast("Not enough letters"); shakeRow(guesses.length); return; }
+    if (!VALID.has(current)) { toast("Not in word list"); shakeRow(guesses.length); return; }
+    var rowIdx = guesses.length;
+    guesses.push(current);
+    var rowEl = document.getElementById("row-" + rowIdx);
+    rowEl.classList.add("flip");
+    current = "";
+    paintBoard();
+    paintKeyboard();
+    if (mode === "nightly") saveNightly();
+    var won = guesses[rowIdx] === answer;
+    setTimeout(function () {
+      if (won) endGame(true);
+      else if (guesses.length === MAX_GUESSES) endGame(false);
+    }, 650);
+  }
+  function shakeRow(i) {
+    var rowEl = document.getElementById("row-" + i);
+    if (!rowEl) return;
+    rowEl.classList.remove("shake");
+    void rowEl.offsetWidth;
+    rowEl.classList.add("shake");
+  }
+
+  /* ---------- end of game & stats ---------- */
+  function endGame(won) {
+    status = won ? "won" : "lost";
+    if (mode === "nightly") {
+      saveNightly();
+      var today = dateKey(info.date);
+      if (stats.lastDate !== today) {
+        stats.played++;
+        var y = new Date(info.date); y.setDate(y.getDate() - 1);
+        if (won) {
+          stats.wins++;
+          stats.dist[guesses.length - 1]++;
+          stats.curStreak = (stats.lastDate === dateKey(y)) ? stats.curStreak + 1 : 1;
+          stats.maxStreak = Math.max(stats.maxStreak, stats.curStreak);
+        } else {
+          stats.curStreak = 0;
+        }
+        stats.lastDate = today;
+        saveStats();
+      }
+      toast(won ? ["Genius!", "Magnificent!", "Impressive!", "Splendid!", "Great!", "Phew!"][guesses.length - 1] : answer);
+    } else {
+      toast(won ? "Nice! That was practice." : "The word was " + answer);
+    }
+    setTimeout(showStats, 900);
+  }
+
+  /* ---------- stats modal & share ---------- */
+  function showStats() {
+    document.getElementById("stPlayed").textContent = stats.played;
+    document.getElementById("stWin").textContent = (stats.played ? Math.round(100 * stats.wins / stats.played) : 0) + "%";
+    document.getElementById("stCur").textContent = stats.curStreak;
+    document.getElementById("stMax").textContent = stats.maxStreak;
+    var max = Math.max.apply(null, stats.dist.concat([1]));
+    var distEl = document.getElementById("dist");
+    distEl.innerHTML = "";
+    stats.dist.forEach(function (n, i) {
+      var row = document.createElement("div");
+      row.className = "dist-row";
+      var isBest = mode === "nightly" && status === "won" && guesses.length === i + 1;
+      row.innerHTML = '<span class="n">' + (i + 1) + '</span><span class="dist-bar' + (isBest ? " best" : "") + '" style="width:' + Math.max(7, Math.round(100 * n / max)) + '%">' + n + "</span>";
+      distEl.appendChild(row);
+    });
+    var reveal = document.getElementById("answerReveal");
+    if (status === "lost") reveal.innerHTML = "The word was <b>" + answer + "</b>.";
+    else if (status === "won") reveal.innerHTML = "You got it in <b>" + guesses.length + "</b> " + (guesses.length === 1 ? "guess" : "guesses") + "!";
+    else reveal.textContent = "";
+    document.getElementById("practiceAgainBtn").style.display = (mode === "practice") ? "block" : "none";
+    openModal("statsModal");
+  }
+  function shareText() {
+    var dateStr = info.date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    var head = "Word Tide 🌊\n" + dateStr + " · " + (status === "won" ? guesses.length + "/6" : "X/6") + "\n";
+    var grid = guesses.map(function (g) {
+      return scoreGuess(g, answer).map(function (s) {
+        return s === "correct" ? "🟩" : s === "present" ? "🟨" : "⬜";
+      }).join("");
+    }).join("\n");
+    return head + "\n" + grid;
+  }
+  document.getElementById("shareBtn").addEventListener("click", function () {
+    var text = shareText();
+    if (navigator.share) {
+      navigator.share({ text: text }).catch(function () {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(function () { toast("Result copied — paste it anywhere"); });
+    } else {
+      toast("Copy this:\n" + text, 4000);
+    }
+  });
+
+  /* ---------- modes ---------- */
+  function startNightly() {
+    mode = "nightly";
+    info = tonightInfo();
+    answer = info.word;
+    var saved = loadNightly();
+    guesses = saved ? saved.guesses.slice() : [];
+    status = saved ? saved.status : "playing";
+    current = "";
+    document.getElementById("nightlyBtn").classList.add("active");
+    document.getElementById("practiceBtn").classList.remove("active");
+    updateDateline();
+    buildBoard(); paintBoard(); paintKeyboard();
+    if (status !== "playing") setTimeout(showStats, 400);
+  }
+  function startPractice() {
+    mode = "practice";
+    answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+    guesses = []; current = ""; status = "playing";
+    document.getElementById("practiceBtn").classList.add("active");
+    document.getElementById("nightlyBtn").classList.remove("active");
+    updateDateline();
+    buildBoard(); paintBoard(); paintKeyboard();
+  }
+  function updateDateline() {
+    var dateStr = info.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+    var monStr = info.monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    if (mode === "nightly") {
+      document.getElementById("dateline").textContent = dateStr + " · Word " + (info.idx + 1) + " of 7 · Week of " + monStr;
+    } else {
+      document.getElementById("dateline").textContent = "Practice word — doesn’t count toward stats";
+    }
+  }
+  document.getElementById("nightlyBtn").addEventListener("click", startNightly);
+  document.getElementById("practiceBtn").addEventListener("click", startPractice);
+  document.getElementById("practiceAgainBtn").addEventListener("click", function () {
+    closeModal("statsModal");
+    startPractice();
+  });
+
+  /* ---------- modals ---------- */
+  function openModal(id) { document.getElementById(id).classList.add("open"); }
+  function closeModal(id) { document.getElementById(id).classList.remove("open"); }
+  document.getElementById("helpBtn").addEventListener("click", function () { openModal("helpModal"); });
+  document.getElementById("statsBtn").addEventListener("click", showStats);
+  document.querySelectorAll("[data-close]").forEach(function (el) {
+    el.addEventListener("click", function () { closeModal(el.dataset.close); });
+  });
+  document.querySelectorAll(".modal-overlay").forEach(function (ov) {
+    ov.addEventListener("click", function (e) { if (e.target === ov) ov.classList.remove("open"); });
+  });
+
+  /* ---------- go ---------- */
+  buildBoard();
+  buildKeyboard();
+  startNightly();
+})();
+</script>
+</body>
+</html>
