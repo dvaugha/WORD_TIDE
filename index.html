@@ -468,7 +468,7 @@
     var dateStr = info.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
     var monStr = info.monday.toLocaleDateString("en-US", { month: "short", day: "numeric" });
     if (mode === "nightly") {
-      document.getElementById("dateline").textContent = dateStr + " · Word " + (info.idx + 1) + " of 7 · Week of " + monStr;
+      document.getElementById("dateline").textContent = dateStr + " · Night " + (info.idx + 1) + " of 7 · Week of " + monStr;
     } else {
       document.getElementById("dateline").textContent = "Practice word — doesn’t count toward stats";
     }
